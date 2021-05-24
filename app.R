@@ -1,18 +1,9 @@
 library(shiny)
+library(shinythemes)
 library(tidyverse)
 load("dat.Rdata")
 
 fieldsMandatory <- c("gender", "age", "white_blood_cell", "monocyte", "lymphocyte", "c_reactive_protein", "creatine")
-
-labelMandatory <- function(label) {
-    tagList(
-        label,
-        span("*", class="mandatory_star")
-    )
-}
-
-appCSS <-
-    ".mandatory_star { color: red; }"
 
 shinyApp(
     ui <- navbarPage(
@@ -21,15 +12,8 @@ shinyApp(
         tabPanel(
             title = "Patient Form",
             fluidPage(
-                #shinyjs::useShinyjs(),
-                #shinyjs::inlineCSS(appCSS),
-                tags$style(
-                    HTML('#patient-form {
-                            text-align: center;
-                            border: 3px solid blue;
-                            padding: 10px;
-                         }')
-                ),
+                shinyjs::useShinyjs(),
+                theme = shinytheme("flatly"),
                 titlePanel("Fill in below for a COVID-19 risk assessment."),
                 h4("Intended for the general public."),
                 br(),
@@ -52,7 +36,7 @@ shinyApp(
                                             height: 50px; 
                                             width: 100%; 
                                             text-align: center; 
-                                            font-size: 30px;
+                                            font-size: 30px;    
                                             display: block;
                                           }")
                         )
@@ -88,7 +72,7 @@ shinyApp(
                    fluidRow(
                        column(8, align="center", offset = 2,
                               
-                              selectInput("", "", c()),
+                              # TODO: take protein input thru user given csv 
                               
                               tags$style(type="text/css", "
                                          #string { 
