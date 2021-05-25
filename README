@@ -1,0 +1,4 @@
+shiny::runGitHub(
+    repo = "Risk-Calculator", 
+    username = "DATA3888-CovidR-2",
+    ref = "master")
