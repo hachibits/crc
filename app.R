@@ -1,14 +1,65 @@
 library(shiny)
 library(shinythemes)
+library(DT)
 library(tidyverse)
 load("dat.Rdata")
 
-fieldsMandatory <- c("gender", "age", "white_blood_cell", "monocyte", "lymphocyte", "c_reactive_protein", "creatine")
+plabel <- as.data.frame(filbin_data$group)
+ID <- plabel != "non-COVID-19"
+filbin_data <- filbin_data[ID, ]
+# Intersect structure of dataframes ----
+shen_numeric <- shen_data %>%
+    dplyr::select(which(colnames(shen_data) %in% colnames(filbin_data))) %>%
+    dplyr::select(where(is.numeric))
+filbin_numeric <- filbin_data %>%
+    dplyr::select(which(colnames(shen_data) %in% colnames(filbin_data))) %>%
+    dplyr::select(where(is.numeric))
+# Log-transformation ----
+filbin_numeric = log2(filbin_numeric[rowSums(is.na(filbin_numeric)) < 306*0.5,])
+# Median normalisation ----
+pmedian <- apply(filbin_numeric, 2, median, na.rm = TRUE)
+adj <- pmedian - median(pmedian)
+filbin_numeric <- sweep(filbin_numeric, 2, adj, FUN = "-")
+
+## Model building & training ----
+# Extract train and test data
+covid_id <- !(filbin_data$group == "non-COVID-19")
+X <- as.matrix(filbin_numeric[covid_id, ])
+
+rownames(X) <- paste("sample", seq_len(nrow(X)))
+y <- filbin_data$group[covid_id]
+names(y) <- paste("sample", seq_len(nrow(X)))
+
+test_id <- cvSets$subsets[cvSets$which == j]
+X_test <- X[test_id, ]
+X_train <- X[-test_id, ]
+y_test <- y[test_id]
+y_train <- y[-test_id]
+
+design <- model.matrix(~ y_train)
+
+# Fit the limma model ----
+fit <- lmFit(t(X_train), design)
+fit2 <- eBayes(fit)
+tT <- topTable(fit2, coef = 2, number = Inf, sort.by ="t")
+selected_features <- rownames(tT)[1:200]
+
+# Support vector machine ----
+pred_svm <- c()
+trained_svm <- svm(X_train[, selected_features],
+                   factor(y_train), type = "C")
+predicted_svm <- predict(trained_svm, X_test[, selected_features])
+names(predicted_svm) <- names(y_test)
+pred_svm <- append(pred_svm, predicted_svm)
+
+fieldsMandatory <- c("gender", "age", "white_blood_cell", "monocyte", "lymphocyte", "c_reactive_protein", "creatine", "target_upload")
 
 shinyApp(
     ui <- navbarPage(
         title = "COVID-19 Risk Calculator",
         id = "navbar",
+        
+        # Patient Form UI ---- 
         tabPanel(
             title = "Patient Form",
             fluidPage(
@@ -60,31 +111,41 @@ shinyApp(
             )
         ),
         
+        # GP Form UI ----
         tabPanel(
            title = "General Practitioner Form",
            fluidPage(
                titlePanel("Fill in below for a COVID-19 risk assessment."),
-               h4("Intended for the medical expert in charge of patient."),
+               h3("COVID-19 Risk Calculator"),
+               p("This proteomics risk calculator provides a reflection of patient health, current COVID-19 status "),
+               h3("Disclaimer"),
+               p("Intended for the medical expert in charge of patient. Interpretation of the results of this calculator by those without appropriate medical and/or clinical training is not recommended."),
                br(),
                div(
                    id="gp-form",
                    
                    fluidRow(
                        column(8, align="center", offset = 2,
-                              
-                              # TODO: take protein input thru user given csv 
-                              
-                              tags$style(type="text/css", "
-                                         #string { 
-                                           height: 50px; 
-                                           width: 100%; 
-                                           text-align: center; 
-                                           font-size: 30px;
-                                           display: block;
-                                         }")
+
+                          fileInput('target_upload', 'Choose file to upload',
+                                    accept = c(
+                                        'text/csv',
+                                        'text/comma-separated-values',
+                                        '.csv'
+                                    )),
+                          radioButtons("separator","Separator: ",choices = c(";",",",":"), selected=";",inline=TRUE),
+#                          DT::dataTableOutput("output_table"),
+
+                          tags$style(type="text/css", "
+                                     #string {
+                                       height: 50px;
+                                       width: 100%;
+                                       text-align: center;
+                                       font-size: 30px;
+                                       display: block;
+                                     }")
                        )
                    )
-                   
                )
            ),
            br(),
@@ -103,14 +164,19 @@ shinyApp(
            )
         ), 
         
+        # Final results ouput ----
         tabPanel(
             title = "Results",
             value = "result",
-            verbatimTextOutput("results")
+            #verbatimTextOutput("results")
+            fluidRow(
+                column(4, tableOutput('results'))
+            )
         )
     ),
     
     server <- function(input, output, session) {
+        # Mandatory user input checking and validation ---- 
         observe({
             mandatoryFilled <- 
                 vapply(fieldsMandatory,
@@ -121,6 +187,7 @@ shinyApp(
             mandatoryFilled <- all(mandatoryFilled)
             
             shinyjs::toggleState(id="pbutton", condition=mandatoryFilled)
+            shinyjs::toggleState(id="gbutton", condition=mandatoryFilled)
         })
         
         observeEvent(input$pbutton | input$gbutton, {
@@ -131,8 +198,17 @@ shinyApp(
                              selected="result")
         })
         
-        output$results <- renderPrint({
-            p(input$gender, input$age)
+        # # Input file parsing ----
+        # file <- input$target_upload
+        # ext <- tools::file_ext(file$datapath)
+        # 
+        # req(file)
+        # validate(need(ext == "csv", "Please upload a .csv file"))
+        # 
+        # df <- read.csv(file$datapath)
+        
+        output$results <- renderTable({
+           pred_svm
         })
     }
 )
