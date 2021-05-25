@@ -21,8 +21,7 @@ pmedian <- apply(filbin_numeric, 2, median, na.rm = TRUE)
 adj <- pmedian - median(pmedian)
 filbin_numeric <- sweep(filbin_numeric, 2, adj, FUN = "-")
 
-## Model building & training ----
-# Extract train and test data
+# Model building & training ----
 covid_id <- !(filbin_data$group == "non-COVID-19")
 X <- as.matrix(filbin_numeric[covid_id, ])
 
@@ -30,30 +29,63 @@ rownames(X) <- paste("sample", seq_len(nrow(X)))
 y <- filbin_data$group[covid_id]
 names(y) <- paste("sample", seq_len(nrow(X)))
 
-test_id <- cvSets$subsets[cvSets$which == j]
-X_test <- X[test_id, ]
-X_train <- X[-test_id, ]
-y_test <- y[test_id]
-y_train <- y[-test_id]
+set.seed(2021)
+cvK <- 5  # number of CV folds
+cv_50acc_knn <- cv_50acc_svm <- cv_50acc_dlda <- c()
 
-design <- model.matrix(~ y_train)
+cvSets <- cvTools::cvFolds(nrow(X), cvK)  # permute all the data, into 3 folds
 
-# Fit the limma model ----
-fit <- lmFit(t(X_train), design)
-fit2 <- eBayes(fit)
-tT <- topTable(fit2, coef = 2, number = Inf, sort.by ="t")
-selected_features <- rownames(tT)[1:200]
+pred_knn <- pred_svm <- pred_dlda <- c()
+cv_acc_knn <- cv_acc_svm <- cv_acc_dlda <- c() # initialise results vector
+for (j in 1:cvK) {
+    test_id <- cvSets$subsets[cvSets$which == j]
+    X_test <- X[test_id, ]
+    X_train <- X[-test_id, ]
+    y_test <- y[test_id]
+    y_train <- y[-test_id]
+    
+    design <- model.matrix(~ y_train)
+    
+    # fit the limma model
+    fit <- lmFit(t(X_train), design)
+    fit2 <- eBayes(fit)
+    tT <- topTable(fit2, coef = 2, number = Inf, sort.by ="t")
+    selected_features <- rownames(tT)[1:200]
+    
+    ##KNN
+    predicted_knn  <- class::knn(train = X_train[, selected_features],
+                                 test = X_test[, selected_features],
+                                 cl = y_train, k = 5)
+    names(predicted_knn) <- names(y_test)
+    pred_knn <- append(pred_knn, predicted_knn)
+    
+    cv_acc_knn[j] <- mean(predicted_knn == y_test)  
+    
+    ##SVM
+    trained_svm <- svm(X_train[, selected_features],
+                       factor(y_train), type = "C")
+    predicted_svm <- predict(trained_svm, X_test[, selected_features])
+    names(predicted_svm) <- names(y_test)
+    pred_svm <- append(pred_svm, predicted_svm)
+    cv_acc_svm[j] <- mean(predicted_svm == y_test)
+    
+    ## DLDA
+    trained_dlda <- dlda(X_train[, selected_features], y_train)
+    predicted_dlda <- predict(trained_dlda, X_test[, selected_features])$class
+    names(predicted_dlda) <- names(y_test)
+    pred_dlda <- append(pred_dlda, predicted_dlda)
+    cv_acc_dlda[j] <- mean(predicted_dlda == y_test)
+}
 
-# Support vector machine ----
-pred_svm <- c()
-trained_svm <- svm(X_train[, selected_features],
-                   factor(y_train), type = "C")
-predicted_svm <- predict(trained_svm, X_test[, selected_features])
-names(predicted_svm) <- names(y_test)
-pred_svm <- append(pred_svm, predicted_svm)
+
+proteins <- colnames(filbin_numeric) %>% t()
+severity <- function(df) {
+    X = as.matrix(df)
+    predicted_svm = predict(trained_svm, X[, selected_features])
+    return(predicted_svm)
+}
 
 fieldsMandatory <- c("gender", "age", "white_blood_cell", "monocyte", "lymphocyte", "c_reactive_protein", "creatine", "target_upload")
-
 shinyApp(
     ui <- navbarPage(
         title = "COVID-19 Risk Calculator",
@@ -117,7 +149,14 @@ shinyApp(
            fluidPage(
                titlePanel("Fill in below for a COVID-19 risk assessment."),
                h3("COVID-19 Risk Calculator"),
-               p("This proteomics risk calculator provides a reflection of patient health, current COVID-19 status "),
+               p("This COVID-19 risk calculator is catered to your local GP - provides a reflection of patient health, current COVID-19 status and vulnerability of contracting the disease. To conduct this measure, we request a series of proteomics data for the desired outcome, a boilerplate spreadsheet is available below to be assessed and filled by your GP."),
+               # Download scaffold csv ----
+               br(),
+               fluidRow(
+                   column(8, align="center", offset = 2,
+                          downloadButton('download', "Download scaffold .csv")
+                   )
+               ),
                h3("Disclaimer"),
                p("Intended for the medical expert in charge of patient. Interpretation of the results of this calculator by those without appropriate medical and/or clinical training is not recommended."),
                br(),
@@ -198,18 +237,30 @@ shinyApp(
                              selected="result")
         })
         
-        # # Input file parsing ----
-        # file <- input$target_upload
-        # ext <- tools::file_ext(file$datapath)
-        # 
-        # req(file)
-        # validate(need(ext == "csv", "Please upload a .csv file"))
-        # 
-        # df <- read.csv(file$datapath)
-        
-        output$results <- renderTable({
-           pred_svm
+        # Input file parsing ----
+        df <- reactive({ 
+            file <- input$target_upload
+            if (is.null(file)) 
+                return(NULL)
+            
+            ext <- tools::file_ext(file$datapath)
+            req(file)
+            validate(need(ext == "csv", "Please upload a .csv file"))
+            
+            return(read.csv(file$datapath, header=TRUE, sep=input$separator))
         })
+        
+        output$result <- renderPrint(
+            severity(df)
+        )
+        
+        
+        output$download <- downloadHandler(
+            filename = "scaffold.csv",
+            content = function(filename) {
+                write.csv(proteins, filename)
+            }
+        )
     }
 )
 
