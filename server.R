@@ -1,3 +1,5 @@
+library(DT)
+
 fieldsMandatory <- c("gender", "age", "white_blood_cell", "monocyte", "lymphocyte", "c_reactive_protein", "creatine")
 proteins <- head(filbin_numeric, 1)
 
@@ -41,19 +43,6 @@ shinyServer(function(input, output, session) {
             return()
         }
         
-        appendTab(inputId = "tabs",
-                  tabPanel("Results for General Practitioner",
-                           titlePanel("Your results"),
-                           p("If non-healthy we've assessed you as: "),
-                           verbatimTextOutput("severity"),
-                           p("To review your inputted proteome: "),
-                           fluidRow(
-                               column(4, tableOutput("input_df"))
-                           ),
-                           p("Accuracy of model used for diagnosis: "),
-                           plotOutput("accuracy")
-                           )
-        )
         # Input file parsing ----
         # output$input_df <- renderTable({
         #     req(input$target_upload)
@@ -68,8 +57,9 @@ shinyServer(function(input, output, session) {
         # 
         #     return(reduced_df)
         # })
-        output$input_df <- renderTable({
-            head(filbin_numeric, 1)
+        output$input_df <- DT::renderDataTable({
+            DT::datatable(head(filbin_numeric, 1), 
+                          options = list(dom = 't'))
         })
         
         output$severity = renderPrint({
@@ -85,8 +75,33 @@ shinyServer(function(input, output, session) {
                     names = c("SVM"))
         })
         
+        
         updateNavbarPage(session, "navbar",
                          selected="results")
+        
+        # UI pagination ----
+        appendTab(inputId = "tabs",
+                  tabPanel("Results for General Practitioner",
+                           titlePanel("Your results"),
+                           
+                           h4("If non-healthy we've assessed you as: "),
+                           verbatimTextOutput("severity"),
+                           
+                           h4("Review your inputted proteome: "),
+                           fluidRow(
+                               column(width = 12,
+                                      shinydashboard::box(
+                                          width = NULL, status = "primary",
+                                          div(style = 'overflow-x: scroll', DT::dataTableOutput("input_df"))
+                                      )
+                               )
+                           ),
+                           
+                           h4("Accuracy of model used for diagnosis: "),
+                           plotOutput("accuracy")
+                  )
+        )
+        
     })
     
     # Button to download (row of on-hand data/feature labels only)
