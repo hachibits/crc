@@ -125,10 +125,16 @@ shinyUI(
         tabPanel(
             title = "Results",
             value = "results",
-            # verbatimTextOutput("severity")
-            fluidRow(
-                column(4, tableOutput("input_df"))
-            )
+            
+            tabsetPanel(id = "tabs"),
+            
+            # sidebarPanel(
+            #     selectInput(inputId = "form",
+            #                 label = "Choose a form:",
+            #                 choices = c("Patient", "General Practitioner"))
+            # ),
+            
+            
         )
     )
 )

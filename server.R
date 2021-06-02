@@ -1,8 +1,6 @@
 fieldsMandatory <- c("gender", "age", "white_blood_cell", "monocyte", "lymphocyte", "c_reactive_protein", "creatine")
 proteins <- head(filbin_numeric, 1)
-df <- read.csv("./scaffold.csv")
-predicted_svm <- predict(trained_svm, df[, selected_features]) %>%
-    as.character()
+
 
 shinyServer(function(input, output, session) {
     # Mandatory user input checking and validation ---- 
@@ -19,50 +17,74 @@ shinyServer(function(input, output, session) {
         #shinyjs::toggleState(id="gbutton", condition=mandatoryFilled)
     })
     
-    # observeEvent(input$pbutton | input$gbutton, {
-    #     if (input$pbutton == 0 && input$gbutton == 0) {
-    #         return()
-    #     }
-    #     updateNavbarPage(session, "navbar",
-    #                      selected="results")
-    # })
+
+    observeEvent(input$pbutton, {
+        if (input$pbutton == 0) {
+            return()
+        }
+        
+        appendTab(inputId = "tabs",
+                  tabPanel("Results for Patient",
+                           titlePanel("Your results"),
+                           #p(sprintf("We estimate you have a %s chance of being %s.", rate, health))
+                           )
+                  )
+        
+        
+        updateNavbarPage(session, "navbar",
+                         selected="results")
+    })
+    
+
     observeEvent(input$gbutton, {
         if (input$gbutton == 0) {
             return()
         }
         
+        appendTab(inputId = "tabs",
+                  tabPanel("Results for General Practitioner",
+                           titlePanel("Your results"),
+                           p("If non-healthy we've assessed you as: "),
+                           verbatimTextOutput("severity"),
+                           p("To review your inputted proteome: "),
+                           fluidRow(
+                               column(4, tableOutput("input_df"))
+                           ),
+                           p("Accuracy of model used for diagnosis: "),
+                           plotOutput("accuracy")
+                           )
+        )
         # Input file parsing ----
-        # model <- reactive({ 
-        #     # file = input$target_upload
-        #     # if (is.null(file)) 
-        #     #     return(NULL)
-        #     # 
-        #     # ext = tools::file_ext(file$datapath)
-        #     # req(file)
-        #     # validate(need(ext == "csv", "Please upload a .csv file"))
+        # output$input_df <- renderTable({
+        #     req(input$target_upload)
         #     
-        #     df = reactive({
-        #         read.csv(file$datapath, skip=1, header=TRUE, sep=input$separator)
-        #     })
+        #     df <- read.csv(input$target_upload$datapath,
+        #                    skip = 1,
+        #                    sep = input$separator)
         #     
-        #     input_df = df()
+        #     reduced_df <- df %>%
+        #         as.data.frame()
+        #         dplyr::select(which(colnames(df) %in% colnames(filbin_numeric)))
         # 
-        #     # predicted_svm <- predict(trained_svm, input_df[, selected_features])
-        #     
-        #     return(predicted_svm)
+        #     return(reduced_df)
         # })
         output$input_df <- renderTable({
-            req(input$target_upload)
-            
-            df <- read.csv(input$target_upload$datapath,
-                           sep = input$separator)
-            
-            return(df)
+            head(filbin_numeric, 1)
         })
         
-        # output$severity = renderTable({
-        #     severity <- model(); severity 
-        # })
+        output$severity = renderPrint({
+            model <- reactive({
+                predict(trained_svm, head(filbin_numeric, 1)[, selected_features]) %>%
+                    as.character()
+            }); model()
+        })
+        
+        output$accuracy <- renderPlot({
+            plot = boxplot(svm_acc,
+                    horizontal = TRUE, xlab = "Accuracy",
+                    names = c("SVM"))
+        })
+        
         updateNavbarPage(session, "navbar",
                          selected="results")
     })
