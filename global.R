@@ -5,6 +5,7 @@ library(sparsediscrim)
 library(randomForest)
 library(e1071)
 library(limma)
+library(dplyr)
 
 # Omit non-COVID-19 instances ----
 plabel <- as.data.frame(filbin_data$group)
@@ -78,10 +79,10 @@ for (j in 1:cvK) {
   fit <- lmFit(t(X_train), design)
   fit2 <- eBayes(fit)
   tT <- topTable(fit2, coef = 2, number = Inf, sort.by ="t")
-  selected_features <- rownames(tT)[1:200]
+  selected_features <<- rownames(tT)[1:200]
   
   ##SVM
-  trained_svm <- svm(X_train[, selected_features],
+  trained_svm <<- svm(X_train[, selected_features],
                      factor(y_train), type = "C")
   predicted_svm <- predict(trained_svm, X_test[, selected_features])
   names(predicted_svm) <- names(y_test)
