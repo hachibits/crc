@@ -1,89 +1,10 @@
 library(shiny)
 library(shinythemes)
 library(DT)
-library(tidyverse)
-load("dat.Rdata")
-
-plabel <- as.data.frame(filbin_data$group)
-ID <- plabel != "non-COVID-19"
-filbin_data <- filbin_data[ID, ]
-# Intersect structure of dataframes ----
-shen_numeric <- shen_data %>%
-    dplyr::select(which(colnames(shen_data) %in% colnames(filbin_data))) %>%
-    dplyr::select(where(is.numeric))
-filbin_numeric <- filbin_data %>%
-    dplyr::select(which(colnames(shen_data) %in% colnames(filbin_data))) %>%
-    dplyr::select(where(is.numeric))
-# Log-transformation ----
-filbin_numeric = log2(filbin_numeric[rowSums(is.na(filbin_numeric)) < 306*0.5,])
-# Median normalisation ----
-pmedian <- apply(filbin_numeric, 2, median, na.rm = TRUE)
-adj <- pmedian - median(pmedian)
-filbin_numeric <- sweep(filbin_numeric, 2, adj, FUN = "-")
-
-# Model building & training ----
-covid_id <- !(filbin_data$group == "non-COVID-19")
-X <- as.matrix(filbin_numeric[covid_id, ])
-
-rownames(X) <- paste("sample", seq_len(nrow(X)))
-y <- filbin_data$group[covid_id]
-names(y) <- paste("sample", seq_len(nrow(X)))
-
-set.seed(2021)
-cvK <- 5  # number of CV folds
-cv_50acc_knn <- cv_50acc_svm <- cv_50acc_dlda <- c()
-
-cvSets <- cvTools::cvFolds(nrow(X), cvK)  # permute all the data, into 3 folds
-
-pred_knn <- pred_svm <- pred_dlda <- c()
-cv_acc_knn <- cv_acc_svm <- cv_acc_dlda <- c() # initialise results vector
-for (j in 1:cvK) {
-    test_id <- cvSets$subsets[cvSets$which == j]
-    X_test <- X[test_id, ]
-    X_train <- X[-test_id, ]
-    y_test <- y[test_id]
-    y_train <- y[-test_id]
-    
-    design <- model.matrix(~ y_train)
-    
-    # fit the limma model
-    fit <- lmFit(t(X_train), design)
-    fit2 <- eBayes(fit)
-    tT <- topTable(fit2, coef = 2, number = Inf, sort.by ="t")
-    selected_features <- rownames(tT)[1:200]
-    
-    ##KNN
-    predicted_knn  <- class::knn(train = X_train[, selected_features],
-                                 test = X_test[, selected_features],
-                                 cl = y_train, k = 5)
-    names(predicted_knn) <- names(y_test)
-    pred_knn <- append(pred_knn, predicted_knn)
-    
-    cv_acc_knn[j] <- mean(predicted_knn == y_test)  
-    
-    ##SVM
-    trained_svm <- svm(X_train[, selected_features],
-                       factor(y_train), type = "C")
-    predicted_svm <- predict(trained_svm, X_test[, selected_features])
-    names(predicted_svm) <- names(y_test)
-    pred_svm <- append(pred_svm, predicted_svm)
-    cv_acc_svm[j] <- mean(predicted_svm == y_test)
-    
-    ## DLDA
-    trained_dlda <- dlda(X_train[, selected_features], y_train)
-    predicted_dlda <- predict(trained_dlda, X_test[, selected_features])$class
-    names(predicted_dlda) <- names(y_test)
-    pred_dlda <- append(pred_dlda, predicted_dlda)
-    cv_acc_dlda[j] <- mean(predicted_dlda == y_test)
-}
 
 
-proteins <- colnames(filbin_numeric) %>% t()
-severity <- function(df) {
-    X = as.matrix(df)
-    predicted_svm = predict(trained_svm, X[, selected_features])
-    return(predicted_svm)
-}
+
+proteins <- head(filbin_numeric, 1)
 
 fieldsMandatory <- c("gender", "age", "white_blood_cell", "monocyte", "lymphocyte", "c_reactive_protein", "creatine", "target_upload")
 shinyApp(
@@ -172,7 +93,7 @@ shinyApp(
                                         'text/comma-separated-values',
                                         '.csv'
                                     )),
-                          radioButtons("separator","Separator: ",choices = c(";",",",":"), selected=";",inline=TRUE),
+                          radioButtons("separator","Separator: ",choices = c(";",",",":"), selected=",",inline=TRUE),
 #                          DT::dataTableOutput("output_table"),
 
                           tags$style(type="text/css", "
@@ -207,10 +128,10 @@ shinyApp(
         tabPanel(
             title = "Results",
             value = "result",
-            #verbatimTextOutput("results")
-            fluidRow(
-                column(4, tableOutput('results'))
-            )
+            verbatimTextOutput("results")
+            # fluidRow(
+            #     column(4, tableOutput('results'))
+            # )
         )
     ),
     
@@ -226,41 +147,59 @@ shinyApp(
             mandatoryFilled <- all(mandatoryFilled)
             
             shinyjs::toggleState(id="pbutton", condition=mandatoryFilled)
-            shinyjs::toggleState(id="gbutton", condition=mandatoryFilled)
+            #shinyjs::toggleState(id="gbutton", condition=mandatoryFilled)
         })
         
-        observeEvent(input$pbutton | input$gbutton, {
-            if (input$pbutton == 0 && input$gbutton == 0) {
+        # observeEvent(input$pbutton | input$gbutton, {
+        #     if (input$pbutton == 0 && input$gbutton == 0) {
+        #         return()
+        #     }
+        #     updateNavbarPage(session, "navbar",
+        #                      selected="result")
+        # })
+        observeEvent(input$gbutton, {
+            if (input$gbutton == 0) {
                 return()
             }
+            
+            # Input file parsing ----
+            model <- reactive({ 
+                file = input$target_upload
+                if (is.null(file)) 
+                    return(NULL)
+                
+                ext = tools::file_ext(file$datapath)
+                req(file)
+                validate(need(ext == "csv", "Please upload a .csv file"))
+                
+                # input_df = read.csv(file$datapath, header=TRUE, sep=input$separator) %>%
+                #     as.data.frame() %>%
+                #     subset(select=-1) 
+                # 
+                input_df = read.csv(file$datapath, skip=1, header=TRUE, sep=input$separator)
+                
+                # predicted_svm = predict(trained_svm, input_df[, selected_features])
+                # 
+                # list("severity" = as.character(predicted_svm),
+                #      "user_input" = input_df)
+                return(input_df)
+            })
+            
+            
             updateNavbarPage(session, "navbar",
                              selected="result")
         })
         
-        # Input file parsing ----
-        df <- reactive({ 
-            file <- input$target_upload
-            if (is.null(file)) 
-                return(NULL)
-            
-            ext <- tools::file_ext(file$datapath)
-            req(file)
-            validate(need(ext == "csv", "Please upload a .csv file"))
-            
-            return(read.csv(file$datapath, header=TRUE, sep=input$separator))
-        })
-        
-        output$result <- renderPrint(
-            severity(df)
-        )
-        
-        
+        # Button to download (row of on-hand data/feature labels only)
         output$download <- downloadHandler(
             filename = "scaffold.csv",
             content = function(filename) {
                 write.csv(proteins, filename)
             }
         )
+        
+        
+
     }
 )
 
