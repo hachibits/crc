@@ -32,7 +32,7 @@ shinyServer(function(input, output, session) {
         appendTab(inputId = "tabs",
                   tabPanel("Results for Patient",
                            titlePanel("Your results"),
-                           p(sprintf("We estimate you have a %s chance of being:", rate)),
+                           p(sprintf("We estimate you have a %s % chance of being:", rate)),
                            verbatimTextOutput("health"),
                            br(),
                            br(),
