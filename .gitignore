@@ -1,5 +1,7 @@
 *.csv
+rsconnect/
 .DS_Store
+
 
 # History files
 .Rhistory

@@ -21,13 +21,13 @@ shinyUI(
                     fluidRow(
                         column(8, align="center", offset = 2,
                                
-                               selectInput("gender", "Gender", c("", "Male", "Female")),
+                               #selectInput("gender", "Gender", c("", "Male", "Female")),
                                selectInput("age", "Age", c("", "20 - 34", "35 - 49", "50 - 64", "65 - 79", "80+")),
                                selectInput("white_blood_cell", "White blood cell count", c("", "0 - 0.99", "1 - 3.99", "4-7.99", "8 - 11.99", "12+")),
                                selectInput("monocyte", "Monocytes count", c("", "0 - 0.24", "0.25 - 0.49", "0.5 - 0.74", "0.75 - 0.99", "1+")),
                                selectInput("lymphocyte", "Lymphocyte count", c("", "0 - 0.49", "0.5 - 0.99", "1 - 1.49", "1.5 -1.99", "2+")),
                                selectInput("c_reactive_protein", "C-reactive protein (CRP)", c("", "0 - 19", "20 - 59", "60 - 99", "100 - 179", "180+")),
-                               selectInput("creatine", "Creatine", c("", "0 - 0.79", "0.8-1.19", "1.2-1.79", "1.8-2.99", "3+")),
+                               #selectInput("creatine", "Creatine", c("", "0 - 0.79", "0.8-1.19", "1.2-1.79", "1.8-2.99", "3+")),
                                
                                tags$style(type="text/css", "
                                               #string { 
