@@ -5,8 +5,18 @@ library(e1071)
 library(limma)
 library(dplyr)
 
-shen_data <- read.csv("../data/cleaned/shen_data.csv")
-filbin_data <- read.csv("../data/cleaned/filbin_data.csv")
+if (file.exists("./data/cleaned/")) {
+  filbin_data <- read.csv("./data/cleaned/filbin_data.csv",
+                          stringsAsFactors = FALSE,
+                          check.names = FALSE)
+  shen_data <- read.csv("./data/cleaned/filbin_data.csv",
+                        stringsAsFactors = FALSE,
+                        check.names = FALSE)
+  
+  save.image(file="./data/proteomics.RData")
+}
+
+load("./data/proteomics.RData")
 
 # Omit non-COVID-19 instances ----
 plabel <- as.data.frame(filbin_data$group)
