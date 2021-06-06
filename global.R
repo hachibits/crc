@@ -1,5 +1,3 @@
-load("dat.Rdata")
-
 library(tidyverse)
 library(sparsediscrim)
 library(randomForest)
@@ -7,31 +5,8 @@ library(e1071)
 library(limma)
 library(dplyr)
 
-ratio <- c(table(filbin_data$group)[3]/(table(filbin_data$group)[1]+table(filbin_data$group)[2]),
-           table(filbin_data$group)[2]/(table(filbin_data$group)[1]+table(filbin_data$group)[3]))
-
-# # Preprocessing for health model ----
-# label <- as.data.frame(filbin_data$group)
-# label <- ifelse(label == 'non-COVID-19' ,"healthy" , "non-healthy")
-# filbin_data$label = label
-# 
-# library(creditmodel)
-# train_test <- train_test_split(filbin_data, split_type = "Random", prop = 0.7)
-# train <- train_test$train %>%
-#   dplyr::select(where(is.character))
-# test <- train_test$test %>%
-#   dplyr::select(where(is.character))
-# 
-# train <- train[rowSums(is.na(train)) < dim(train)[1]*0.1,]
-# train <- subset(train, select = -c(id))
-# test <- subset(test, select = -c(id))
-# 
-# # Build logistic model (used backwards stepwise selection) ----
-# train$label <- factor(train$label)
-# logit <- step(glmFit, direction = "backward")
-# glmFit <<- glm(label ~ white_blood_cell + monocyte + c_reactive_protein + bmi + 
-#                   age, train, family = binomial(link = "logit"))
-
+shen_data <- read.csv("../data/cleaned/shen_data.csv")
+filbin_data <- read.csv("../data/cleaned/filbin_data.csv")
 
 # Omit non-COVID-19 instances ----
 plabel <- as.data.frame(filbin_data$group)
