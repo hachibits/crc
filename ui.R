@@ -1,6 +1,10 @@
 library(shiny)
 library(shinythemes)
 
+linebreaks <- function(n) {
+        HTML(strrep(br(), n))
+    }
+
 shinyUI(
     navbarPage(
         title = "COVID-19 Risk Calculator",
@@ -63,60 +67,56 @@ shinyUI(
             title = "General Practitioner Form",
             fluidPage(
                 titlePanel("Fill in below for a COVID-19 risk assessment."),
-                h3("COVID-19 Risk Calculator"),
-                p("This COVID-19 risk calculator is catered to your local GP - provides a reflection of patient health, current COVID-19 status and vulnerability of contracting the disease. To conduct this measure, we request a series of proteomics data for the desired outcome, a boilerplate spreadsheet is available below to be assessed and filled by your GP."),
-                # Download scaffold csv ----
                 br(),
-                fluidRow(
-                    column(8, align="center", offset = 2,
-                           downloadButton('download', "Download scaffold .csv")
-                    )
-                ),
-                h3("Disclaimer"),
-                p("Intended for the medical expert in charge of patient. Interpretation of the results of this calculator by those without appropriate medical and/or clinical training is not recommended."),
-                br(),
-                div(
-                    id="gp-form",
+                sidebarLayout(
+                    sidebarPanel(
+                        strong("Boilerplate spreadsheet (.csv)"),
+                        linebreaks(2),
+                        downloadButton('download', "Download"),
+                        
+                        tags$hr(),
+                        
+                        div(
+                           id="gp-form",
+                            
+                           strong("Choose file to upload"),
+                           fileInput('target_upload', '',
+                                     accept = c(
+                                         'text/csv',
+                                         'text/comma-separated-values',
+                                         '.csv'
+                                     )),
+                          
+                          # Select delimiter ----
+                          radioButtons("separator","Separator: ",
+                                       choices = c(";",",",":"), 
+                                       selected=",",
+                                       inline=TRUE),
+                        )
+                    ),
                     
-                    fluidRow(
-                        column(8, align="center", offset = 2,
-                               
-                               fileInput('target_upload', 'Choose file to upload',
-                                         accept = c(
-                                             'text/csv',
-                                             'text/comma-separated-values',
-                                             '.csv'
-                                         )),
-                               # Select delimiter ----
-                               radioButtons("separator","Separator: ",
-                                            choices = c(";",",",":"), 
-                                            selected=",",
-                                            inline=TRUE),
-                               
-                               tags$style(type="text/css", "
-                                         #string {
-                                           height: 50px;
-                                           width: 100%;
-                                           text-align: center;
-                                           font-size: 30px;
-                                           display: block;
-                                         }")
+                    mainPanel(
+                        h3("Disclaimer"),
+                        p("Intended for the medical expert in charge of patient. Interpretation of the results of this calculator by those without appropriate medical and/or clinical training is not recommended."),
+                        
+                        h3("COVID-19 Risk Calculator"),
+                        p("This COVID-19 risk calculator is catered to your local GP - provides a reflection of patient health, current COVID-19 status and vulnerability of contracting the disease. To conduct this measure, we request a series of proteomics data for the desired outcome, a boilerplate spreadsheet is available below to be assessed and filled by your GP."),
+                        
+                        linebreaks(2),
+                        
+                        fluidRow(
+                            column(6, align="center", offset = -3,
+                                   actionButton("gbutton", "Calculate"),
+                                   tags$style(type='text/css', "
+                                                 #button { 
+                                                   vertical-align: middle; 
+                                                   height: 50px; 
+                                                   width: 100%; 
+                                                   font-size: 30px;
+                                                 }")
+                            )
                         )
                     )
-                )
-            ),
-            br(),
-            
-            fluidRow(
-                column(6, align="center", offset = 3,
-                       actionButton("gbutton", "Calculate"),
-                       tags$style(type='text/css', "
-                                     #button { 
-                                       vertical-align: middle; 
-                                       height: 50px; 
-                                       width: 100%; 
-                                       font-size: 30px;
-                                     }")
                 )
             )
         ), 
@@ -126,7 +126,7 @@ shinyUI(
             title = "Results",
             value = "results",
             
-            tabsetPanel(id = "tabs"),
+            tabsetPanel(id = "tabs")
             
             # sidebarPanel(
             #     selectInput(inputId = "form",
