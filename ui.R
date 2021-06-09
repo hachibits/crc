@@ -2,10 +2,6 @@ library(shiny)
 library(shinythemes)
 library(DT)
 
-linebreaks <- function(n) {
-        HTML(strrep(br(), n))
-    }
-
 shinyUI(
     navbarPage(
         title = "COVID-19 Risk Calculator",

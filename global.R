@@ -33,13 +33,14 @@ filbin_numeric <- filbin_data %>%
 
 # Normalise `filbin` and `shen` dataframes ----
 normalise = function(df, n) {
-  #df_numeric = df[, !names(df) %in% c("group")]
-  # Log-transformation and remove non-informative proteins
   log2(df[rowSums(is.na(df)) < n*0.5,])
-  # Median normalisation
+  
+  df <- limma::normalizeBetweenArrays(df, method = "scale")
+  
   pmedian = apply(df, 2, median, na.rm = TRUE)
   adj = pmedian - median(pmedian)
   df = sweep(df, 2, adj, FUN = "-")
+  
   return(df)
 }
 

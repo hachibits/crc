@@ -2,6 +2,10 @@ fieldsMandatory <- c("age", "white_blood_cell", "monocyte", "lymphocyte", "c_rea
 proteins <- head(filbin_numeric, 1)
 rate = round(runif(1, 20.0, 50.0), 2)
 
+linebreaks <- function(n) {
+    HTML(strrep(br(), n))
+}
+
 shinyServer(function(input, output, session) {
     # Mandatory user input checking and validation ---- 
     observe({
@@ -100,7 +104,7 @@ shinyServer(function(input, output, session) {
                     as.character()
             }); model()
         })
-        
+
         output$accuracy <- renderPlot({
             plot = boxplot(svm_acc,
                     horizontal = TRUE, xlab = "Accuracy",
@@ -114,12 +118,13 @@ shinyServer(function(input, output, session) {
         # UI pagination ----
         appendTab(inputId = "tabs",
                   tabPanel("Results for General Practitioner",
-                           titlePanel("Your results"),
+                           titlePanel("Your assessment"),
+                           br(),
                            
-                           h4("If non-healthy we've assessed you as: "),
-                           verbatimTextOutput("severity"),
-                           br(),
-                           br(),
+                           p(sprintf("We've assessed your case to have a %s %% chance of being:", round(mean(svm_acc), 4)*100)),
+                           htmlOutput("severity"),
+                           
+                           linebreaks(2),
                            
                            h4("Review your inputted proteome: "),
                            fluidRow(
@@ -130,8 +135,8 @@ shinyServer(function(input, output, session) {
                                       )
                                )
                            ),
-                           br(),
-                           br(),
+                           
+                           tags$hr(), 
                            
                            h4("Accuracy of model used for diagnosis: "),
                            plotOutput("accuracy")
