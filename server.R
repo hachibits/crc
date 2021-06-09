@@ -1,5 +1,3 @@
-library(DT)
-
 fieldsMandatory <- c("age", "white_blood_cell", "monocyte", "lymphocyte", "c_reactive_protein")
 proteins <- head(filbin_numeric, 1)
 rate = round(runif(1, 20.0, 50.0), 2)

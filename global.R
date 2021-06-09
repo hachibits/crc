@@ -5,7 +5,7 @@ library(e1071)
 library(limma)
 library(dplyr)
 
-if (file.exists("./data/cleaned/")) {
+if (file.exists("./data/cleaned/") && !file.exists("./data/proteomics.RData")) {
   filbin_data <- read.csv("./data/cleaned/filbin_data.csv",
                           stringsAsFactors = FALSE,
                           check.names = FALSE)

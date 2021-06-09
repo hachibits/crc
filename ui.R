@@ -1,5 +1,6 @@
 library(shiny)
 library(shinythemes)
+library(DT)
 
 linebreaks <- function(n) {
         HTML(strrep(br(), n))
@@ -89,7 +90,7 @@ shinyUI(
                           
                           # Select delimiter ----
                           radioButtons("separator","Separator: ",
-                                       choices = c(";",",",":"), 
+                                       choices = c(",",";",":"), 
                                        selected=",",
                                        inline=TRUE),
                         )
