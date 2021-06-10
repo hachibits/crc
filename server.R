@@ -2,10 +2,6 @@ fieldsMandatory <- c("age", "white_blood_cell", "monocyte", "lymphocyte", "c_rea
 proteins <- head(filbin_numeric, 1)
 rate = round(runif(1, 20.0, 50.0), 2)
 
-linebreaks <- function(n) {
-    HTML(strrep(br(), n))
-}
-
 shinyServer(function(input, output, session) {
     # Mandatory user input checking and validation ---- 
     observe({
