@@ -1,6 +1,6 @@
-fieldsMandatory <- c("age", "white_blood_cell", "monocyte", "lymphocyte", "c_reactive_protein")
+fieldsMandatory <- c("gender", "age", "white_blood_cell", "monocyte", "lymphocyte", "c_reactive_protein", "creatine")
 proteins <- head(filbin_numeric, 1)
-rate = round(runif(1, 20.0, 50.0), 2)
+rate = round(mean(pred.svm.prob <- attr(pred.svm, 'probabilities')[,1])*100, 4)
 
 shinyServer(function(input, output, session) {
     # Mandatory user input checking and validation ---- 
@@ -24,14 +24,17 @@ shinyServer(function(input, output, session) {
         }
         
         output$health <- renderPrint({
-            "healthy"
+            prediction <- reactive({
+                pred.svm <- predict(model.svm, head(pdata, 1), probability=TRUE)
+                as.character(pred.svm)
+            }); prediction()
         })
         
         appendTab(inputId = "tabs",
                   tabPanel("Results for Patient",
                            titlePanel("Your results"),
-                           p(sprintf("We estimate you have a %s %% chance of being:", rate)),
-                           verbatimTextOutput("health"),
+                           p(sprintf("We estimate a %s %% chance of you being:", rate)),
+                           textOutput("health"),
                            br(),
                            br(),
                            h4("If healthy, here's how you can prevent contraction of COVID-19:"),
@@ -94,12 +97,83 @@ shinyServer(function(input, output, session) {
                           options = list(dom = 't'))
         })
         
-        output$severity = renderPrint({
-            model <- reactive({
-                predict(trained_svm, head(filbin_numeric, 1)[, selected_features]) %>%
-                    as.character()
-            }); model()
+        
+        input_df <- as.data.frame(input$target_upload) %>%
+            subset(select = -1)
+        
+        ncov <- reactive({
+            predict(model.svm, input_df, probability=TRUE) %>%
+                as.character()
         })
+        
+        severity <- reactive({
+            input_df <- input_df %>%
+                dplyr::select(which(colnames(input_df) %in% selected_features))
+            predict(trained_svm, input_df) %>%
+                as.character()
+        })
+        
+        if (ncov() == "COVID-19") {
+            output$severity = renderPrint({
+                severity();
+            })
+            
+            # UI pagination ----
+            appendTab(inputId = "tabs",
+                tabPanel("Results for General Practitioner",
+                 titlePanel("Your assessment"),
+                 br(),
+                 
+                 p(sprintf("We've assessed your case to have a %s %% chance of being:", round(mean(svm_acc), 4)*100)),
+                 htmlOutput("severity"),
+                 
+                 linebreaks(2),
+                 
+                 h4("Review your inputted proteome: "),
+                 fluidRow(
+                     column(width = 12,
+                            shinydashboard::box(
+                                width = NULL, status = "primary",
+                                div(style = 'overflow-x: scroll', DT::dataTableOutput("input_df"))
+                            )
+                     )
+                 ),
+                 
+                 tags$hr(), 
+                 
+                 h4("Accuracy of model used for diagnosis: "),
+                 plotOutput("accuracy")
+                )
+            )
+            
+        } else {
+            appendTab(inputId = "tabs",
+                tabPanel("Results for General Practitioner",
+                    titlePanel("Your assessment"),
+                    br(),
+                    
+                    p(sprintf("We've assessed you to be COVID-free with %s accuracy, however it's in your best interests to get an official check up and keep up with regulations.", rate)),
+                    
+                    linebreaks(2),
+                    
+                    h4("Review your inputted proteome: "),
+                    fluidRow(
+                        column(width = 12,
+                               shinydashboard::box(
+                                   width = NULL, status = "primary",
+                                   div(style = 'overflow-x: scroll', DT::dataTableOutput("input_df"))
+                               )
+                        )
+                    ),
+                    
+                    tags$hr(), 
+                    
+                    h4("Accuracy of model used for diagnosis: "),
+                    plotOutput("accuracy")
+                      
+                )
+            )
+        }
 
         output$accuracy <- renderPlot({
             plot = boxplot(svm_acc,
@@ -110,34 +184,6 @@ shinyServer(function(input, output, session) {
         
         updateNavbarPage(session, "navbar",
                          selected="results")
-        
-        # UI pagination ----
-        appendTab(inputId = "tabs",
-                  tabPanel("Results for General Practitioner",
-                           titlePanel("Your assessment"),
-                           br(),
-                           
-                           p(sprintf("We've assessed your case to have a %s %% chance of being:", round(mean(svm_acc), 4)*100)),
-                           htmlOutput("severity"),
-                           
-                           linebreaks(2),
-                           
-                           h4("Review your inputted proteome: "),
-                           fluidRow(
-                               column(width = 12,
-                                      shinydashboard::box(
-                                          width = NULL, status = "primary",
-                                          div(style = 'overflow-x: scroll', DT::dataTableOutput("input_df"))
-                                      )
-                               )
-                           ),
-                           
-                           tags$hr(), 
-                           
-                           h4("Accuracy of model used for diagnosis: "),
-                           plotOutput("accuracy")
-                  )
-        )
         
     })
     

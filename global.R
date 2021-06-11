@@ -24,10 +24,10 @@ plabel <- ifelse(filbin_data$group %in% c("Severe", "non-Severe"), "COVID-19", "
 pdata <- filbin_data %>%
   dplyr::select(where(is.numeric))
 
-normalise = function(df) {
-  df = df %>%
-    log2() %>%
-    limma::normalizeBetweenArrays(method = "scale")
+normalise = function(df, n) {
+  log2(df[rowSums(is.na(df)) < n*0.5,])
+  
+  df <- limma::normalizeBetweenArrays(df, method = "scale")
   
   pmedian = apply(df, 2, median, na.rm = TRUE)
   adj = pmedian - median(pmedian)
@@ -36,7 +36,7 @@ normalise = function(df) {
   return(df)
 }
 
-pdata <- normalise(pdata) %>%
+pdata <- normalise(pdata, nrow(pdata)) %>%
   cbind(as.data.frame(plabel))
 
 model.svm <- svm(as.factor(plabel) ~ ., data=pdata, probability=TRUE)
@@ -60,8 +60,8 @@ filbin_numeric <- filbin_data %>%
   dplyr::select(which(colnames(shen_data) %in% colnames(filbin_data))) %>%
   dplyr::select(where(is.numeric))
 
-filbin_numeric <- normalise(filbin_numeric)
-shen_numeric <- normalise(shen_numeric)
+shen_numeric <- normalise(shen_numeric, nrow(shen_numeric))
+filbin_numeric <- normalise(filbin_numeric, nrow(filbin_numeric))
 
 
 # Support vector machine ----
