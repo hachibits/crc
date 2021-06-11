@@ -77,7 +77,7 @@ shinyUI(
                            id="gp-form",
                             
                            strong("Choose file to upload"),
-                           fileInput('target_upload', '',
+                           fileInput(inputId = 'target_upload', '',
                                      accept = c(
                                          'text/csv',
                                          'text/comma-separated-values',

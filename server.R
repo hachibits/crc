@@ -1,6 +1,4 @@
 fieldsMandatory <- c("gender", "age", "white_blood_cell", "monocyte", "lymphocyte", "c_reactive_protein", "creatine")
-proteins <- head(filbin_numeric, 1)
-rate = round(mean(pred.svm.prob <- attr(pred.svm, 'probabilities')[,1])*100, 4)
 
 shinyServer(function(input, output, session) {
     # Mandatory user input checking and validation ---- 
@@ -14,7 +12,6 @@ shinyServer(function(input, output, session) {
         mandatoryFilled <- all(mandatoryFilled)
         
         shinyjs::toggleState(id="pbutton", condition=mandatoryFilled)
-        #shinyjs::toggleState(id="gbutton", condition=mandatoryFilled)
     })
     
 
@@ -78,37 +75,32 @@ shinyServer(function(input, output, session) {
             return()
         }
         
-        # Input file parsing ----
-        # output$input_df <- renderTable({
-        #     req(input$target_upload)
-        #     
-        #     df <- read.csv(input$target_upload$datapath,
-        #                    skip = 1,
-        #                    sep = input$separator)
-        #     
-        #     reduced_df <- df %>%
-        #         as.data.frame()
-        #         dplyr::select(which(colnames(df) %in% colnames(filbin_numeric)))
-        # 
-        #     return(reduced_df)
-        # })
         output$input_df <- DT::renderDataTable({
             DT::datatable(head(filbin_numeric, 1), 
                           options = list(dom = 't'))
         })
         
-        
-        input_df <- as.data.frame(input$target_upload) %>%
-            subset(select = -1)
+        input_df <- reactive({
+            inFile <- input$target_upload
+            if (is.null(inFile))
+                return(NULL)
+            df <- as.data.frame(read.csv(inFile$datapath, sep=input$separator)) %>%
+                subset(select=-1)
+            
+            return(df)
+        })
         
         ncov <- reactive({
+            input_df <- input_df()
             predict(model.svm, input_df, probability=TRUE) %>%
                 as.character()
         })
         
         severity <- reactive({
+            input_df <- input_df()
             input_df <- input_df %>%
                 dplyr::select(which(colnames(input_df) %in% selected_features))
+            
             predict(trained_svm, input_df) %>%
                 as.character()
         })
@@ -142,11 +134,13 @@ shinyServer(function(input, output, session) {
                  tags$hr(), 
                  
                  h4("Accuracy of model used for diagnosis: "),
-                 plotOutput("accuracy")
+                 plotOutput("severity_acc")
                 )
             )
             
         } else {
+            rate = round(mean(pred.svm.prob <- attr(pred.svm, 'probabilities')[,1])*100, 4)
+            
             appendTab(inputId = "tabs",
                 tabPanel("Results for General Practitioner",
                     titlePanel("Your assessment"),
@@ -169,13 +163,19 @@ shinyServer(function(input, output, session) {
                     tags$hr(), 
                     
                     h4("Accuracy of model used for diagnosis: "),
-                    plotOutput("accuracy")
+                    plotOutput("ncov_acc")
                       
                 )
             )
         }
 
-        output$accuracy <- renderPlot({
+        output$ncov_acc <- renderPlot({
+            plot = boxplot(pred.svm.prob,
+                           horizontal = TRUE, xlab = "Accuracy",
+                           names = c("SVM"))
+        })
+        
+        output$severity_acc <- renderPlot({
             plot = boxplot(svm_acc,
                     horizontal = TRUE, xlab = "Accuracy",
                     names = c("SVM"))
@@ -186,6 +186,8 @@ shinyServer(function(input, output, session) {
                          selected="results")
         
     })
+    
+    proteins <- head(filbin_numeric, 1)
     
     # Button to download (row of on-hand data/feature labels only)
     output$download <- downloadHandler(
